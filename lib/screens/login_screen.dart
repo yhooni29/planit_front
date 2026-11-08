@@ -1,5 +1,7 @@
 
 import 'package:flutter/material.dart';
+import 'signup_screen.dart';
+import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -9,14 +11,14 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final emailController = TextEditingController();
+  final idController = TextEditingController();
   final passwordController = TextEditingController();
 
   bool isPasswordVisible = false;
 
   @override
   void dispose() {
-    emailController.dispose();
+    idController.dispose();
     passwordController.dispose();
     super.dispose();
   }
@@ -69,20 +71,23 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 50),
 
-                  const Text('이메일'),
+
+                  const Text('아이디'),
                   const SizedBox(height: 8),
 
                   TextField(
-                    controller: emailController,
-                    keyboardType: TextInputType.emailAddress,
+                    controller: idController,
+                    keyboardType: TextInputType.text,
+                    autocorrect: false,
                     decoration: InputDecoration(
-                      hintText: '이메일을 입력하세요',
-                      prefixIcon: const Icon(Icons.email_outlined),
+                      hintText: '아이디를 입력하세요',
+                      prefixIcon: const Icon(Icons.person_outline),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                   ),
+
 
                   const SizedBox(height: 20),
 
@@ -118,13 +123,29 @@ class _LoginScreenState extends State<LoginScreen> {
                   SizedBox(
                     height: 52,
                     child: ElevatedButton(
+
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('로그인 버튼 클릭!'),
+                        final id = idController.text.trim();
+                        final password = passwordController.text;
+
+                        if (id.isEmpty || password.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('아이디와 비밀번호를 입력해 주세요.'),
+                            ),
+                          );
+                          return;
+                        }
+
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const HomeScreen(),
                           ),
                         );
                       },
+
+
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF4F7CFF),
                         foregroundColor: Colors.white,
@@ -140,12 +161,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   TextButton(
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('회원가입 화면 준비 중'),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SignupScreen(),
                         ),
                       );
                     },
+
                     child: const Text('회원가입'),
                   ),
                 ],
