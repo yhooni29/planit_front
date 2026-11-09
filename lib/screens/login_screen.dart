@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'signup_screen.dart';
 import 'home_screen.dart';
@@ -37,7 +36,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   const SizedBox(height: 40),
 
-
                   Center(
                     child: Image.asset(
                       'assets/images/planit_logo.png',
@@ -46,16 +44,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
 
-
                   const SizedBox(height: 20),
 
                   const Text(
                     '함께 만드는 더 좋은 하루, 플랜잇',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 15,
-                    ),
+                    style: TextStyle(color: Colors.grey, fontSize: 15),
                   ),
 
                   const SizedBox(height: 8),
@@ -63,14 +57,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   const Text(
                     '우리의 약속을 더 쉽고 즐겁게',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 15,
-                    ),
+                    style: TextStyle(color: Colors.grey, fontSize: 15),
                   ),
 
                   const SizedBox(height: 50),
-
 
                   const Text('아이디'),
                   const SizedBox(height: 8),
@@ -87,7 +77,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-
 
                   const SizedBox(height: 20),
 
@@ -123,7 +112,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   SizedBox(
                     height: 52,
                     child: ElevatedButton(
-
                       onPressed: () {
                         final id = idController.text.trim();
                         final password = passwordController.text;
@@ -140,20 +128,16 @@ class _LoginScreenState extends State<LoginScreen> {
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const HomeScreen(),
+                            builder: (context) => HomeScreen(loginId: id),
                           ),
                         );
                       },
-
 
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF4F7CFF),
                         foregroundColor: Colors.white,
                       ),
-                      child: const Text(
-                        '로그인',
-                        style: TextStyle(fontSize: 16),
-                      ),
+                      child: const Text('로그인', style: TextStyle(fontSize: 16)),
                     ),
                   ),
 

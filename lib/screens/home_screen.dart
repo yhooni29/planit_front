@@ -1,24 +1,21 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../models/plan_room.dart';
+import '../models/user_profile.dart';
+import '../services/profile_repository.dart';
+import '../services/rooms_controller.dart';
+import '../services/calendar_controller.dart';
+import 'calendar/calendar_screen.dart';
 import 'create_room_screen.dart';
-
-class PlanRoom {
-  final String name;
-  final String code;
-  final DateTime createdAt;
-  final int capacity;
-
-  PlanRoom({
-    required this.name,
-    required this.code,
-    required this.createdAt,
-    required this.capacity,
-  });
-}
+import 'login_screen.dart';
+import 'profile/profile_screen.dart';
+import 'rooms/room_detail_screen.dart';
+import 'rooms/rooms_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, required this.loginId});
+
+  final String loginId;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -28,18 +25,78 @@ class _HomeScreenState extends State<HomeScreen> {
   static const Color primaryBlue = Color(0xFF4F7CFF);
   static const Color darkBlue = Color(0xFF142F5F);
 
-  final List<PlanRoom> _rooms = [];
+  final _roomsController = RoomsController(rooms: []);
+  late final CalendarController _calendarController;
+  late final MemoryProfileRepository _profileRepository;
 
+  List<PlanRoom> get _rooms => _roomsController.rooms;
 
+  @override
+  void initState() {
+    super.initState();
+    _calendarController = CalendarController(roomsController: _roomsController);
+    // Local session only, until the authentication/profile APIs are connected.
+    _profileRepository = MemoryProfileRepository(
+      initialProfile: UserProfile(
+        userId: widget.loginId,
+        nickname: '플래너',
+        email: '',
+        loginId: widget.loginId,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _calendarController.dispose();
+    _roomsController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _logout() async {
+    Navigator.of(context).pushAndRemoveUntil<void>(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
+    );
+  }
+
+  void _openProfile() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) =>
+            ProfileScreen(repository: _profileRepository, onLogout: _logout),
+      ),
+    );
+  }
+
+  void _openRooms() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => RoomsScreen(
+          controller: _roomsController,
+          onCreatePlan: _showCreateRoomDialog,
+        ),
+      ),
+    );
+  }
+
+  void _openCalendar() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => CalendarScreen(
+          controller: _calendarController,
+          onOpenRoom: (id) => _openRoom(_roomsController.room(id)),
+        ),
+      ),
+    );
+  }
 
   void _showAddMenu() {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(24),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
         return SafeArea(
@@ -69,8 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ListTile(
                   leading: const CircleAvatar(
                     backgroundColor: Color(0xFFEAF0FF),
-                    child: Icon(Icons.add_home_outlined,
-                        color: primaryBlue),
+                    child: Icon(Icons.add_home_outlined, color: primaryBlue),
                   ),
                   title: const Text('방 만들기'),
                   subtitle: const Text('새로운 약속방을 만들어요'),
@@ -84,8 +140,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ListTile(
                   leading: const CircleAvatar(
                     backgroundColor: Color(0xFFEAF0FF),
-                    child: Icon(Icons.key_outlined,
-                        color: primaryBlue),
+                    child: Icon(Icons.key_outlined, color: primaryBlue),
                   ),
                   title: const Text('코드로 참여하기'),
                   subtitle: const Text('친구에게 받은 초대 코드를 입력해요'),
@@ -103,33 +158,27 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
   Future<void> _showCreateRoomDialog() async {
     final result = await Navigator.push<CreatedRoom>(
       context,
-      MaterialPageRoute(
-        builder: (context) => const CreateRoomScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const CreateRoomScreen()),
     );
 
     if (!mounted || result == null) return;
 
-
     final room = PlanRoom(
-      name: result.name,
-      code: result.code,
-      createdAt: DateTime.now(),
+      id: result.code,
+      title: result.name,
+      inviteCode: result.code,
+      region: '지역 미정',
       capacity: result.capacity,
+      members: const [RoomMember(name: '나', submitted: false)],
     );
 
-
-    setState(() {
-      _rooms.add(room);
-    });
+    _roomsController.addRoom(room);
 
     _showRoomCreatedDialog(room);
   }
-
 
   void _showRoomCreatedDialog(PlanRoom room) {
     showDialog<void>(
@@ -141,7 +190,7 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                room.name,
+                room.title,
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -151,7 +200,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const Text('초대 코드'),
               const SizedBox(height: 8),
               SelectableText(
-                room.code,
+                room.inviteCode,
                 style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -160,18 +209,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                '친구에게 이 코드를 공유해 보세요.',
-                textAlign: TextAlign.center,
-              ),
+              const Text('친구에게 이 코드를 공유해 보세요.', textAlign: TextAlign.center),
             ],
           ),
           actions: [
             TextButton.icon(
               onPressed: () async {
-                await Clipboard.setData(
-                  ClipboardData(text: room.code),
-                );
+                await Clipboard.setData(ClipboardData(text: room.inviteCode));
                 if (dialogContext.mounted) {
                   Navigator.pop(dialogContext);
                 }
@@ -203,9 +247,7 @@ class _HomeScreenState extends State<HomeScreen> {
             textCapitalization: TextCapitalization.characters,
             maxLength: 7,
             inputFormatters: [
-            FilteringTextInputFormatter.allow(
-              RegExp(r'[a-zA-Z0-9#@!]'),
-              ),
+              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9#@!]')),
             ],
             decoration: const InputDecoration(
               labelText: '초대 코드',
@@ -236,36 +278,34 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (!mounted || inputCode == null) return;
 
-
     if (inputCode.length != 7) {
       _showMessage('초대 코드는 7자리입니다.');
       return;
     }
 
-
     // 아직 서버가 없으므로 다른 사용자의 방은 조회할 수 없음.
-    final existingRoom = _rooms.where(
-          (room) => room.code == inputCode,
-    );
+    final existingRoom = _rooms.where((room) => room.inviteCode == inputCode);
 
     if (existingRoom.isNotEmpty) {
       _showMessage('이미 내 목록에 있는 방이에요.');
     } else {
-      _showMessage(
-        '코드 입력 완료! 실제 방 참여는 서버 연결 후 가능해요.',
-      );
+      _showMessage('코드 입력 완료! 실제 방 참여는 서버 연결 후 가능해요.');
     }
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _openRoom(PlanRoom room) {
-    // TODO: 추후 방 상세 화면 연결
-    _showMessage('${room.name}의 상세 화면은 다음 단계에서 만들어요.');
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) =>
+            RoomDetailScreen(roomId: room.id, controller: _roomsController),
+      ),
+    );
   }
 
   Widget _buildRoomCard(PlanRoom room, int index) {
@@ -312,7 +352,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      room.name,
+                      room.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -324,35 +364,23 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 6),
 
                     Text(
-                      '정원 ${room.capacity}명 · 초대 코드: ${room.code}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                      ),
+                      '정원 ${room.capacity}명 · 초대 코드: ${room.inviteCode}',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
-
                   ],
                 ),
               ),
               IconButton(
                 tooltip: '초대 코드 복사',
-                icon: const Icon(
-                  Icons.copy_outlined,
-                  color: Colors.grey,
-                ),
+                icon: const Icon(Icons.copy_outlined, color: Colors.grey),
                 onPressed: () async {
-                  await Clipboard.setData(
-                    ClipboardData(text: room.code),
-                  );
+                  await Clipboard.setData(ClipboardData(text: room.inviteCode));
                   if (mounted) {
                     _showMessage('초대 코드가 복사됐어요.');
                   }
                 },
               ),
-              const Icon(
-                Icons.chevron_right,
-                color: Colors.grey,
-              ),
+              const Icon(Icons.chevron_right, color: Colors.grey),
             ],
           ),
         ),
@@ -393,11 +421,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const Text(
               '새로운 방을 만들거나\n친구에게 받은 코드로 참여해 보세요!',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-                height: 1.6,
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey, height: 1.6),
             ),
             const SizedBox(height: 20),
             OutlinedButton.icon(
@@ -413,97 +437,110 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
+    return ListenableBuilder(
+      listenable: _roomsController,
+      builder: (context, _) => Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        title: const Text(
-          'PlanIt',
-          style: TextStyle(
-            color: primaryBlue,
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        actions: [
-          IconButton(
-            tooltip: '프로필',
-            onPressed: () {
-              _showMessage('프로필 화면은 추후 연결할 예정이에요.');
-            },
-            icon: const Icon(
-              Icons.account_circle_outlined,
-              size: 29,
-              color: darkBlue,
+        appBar: AppBar(
+          backgroundColor: const Color(0xFFF8FAFC),
+          elevation: 0,
+          automaticallyImplyLeading: false,
+          title: const Text(
+            'PlanIt',
+            style: TextStyle(
+              color: primaryBlue,
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(width: 10),
-        ],
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 16,
+          actions: [
+            IconButton(
+              tooltip: '내 방',
+              onPressed: _openRooms,
+              icon: const Icon(Icons.meeting_room_outlined, color: darkBlue),
+            ),
+            IconButton(
+              tooltip: '프로필',
+              onPressed: _openProfile,
+              icon: const Icon(
+                Icons.account_circle_outlined,
+                size: 29,
+                color: darkBlue,
+              ),
+            ),
+            const SizedBox(width: 10),
+          ],
+        ),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '함께 만드는 더 좋은 하루, 플랜잇',
+                  style: TextStyle(color: Colors.grey, fontSize: 14),
+                ),
+                const SizedBox(height: 32),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      '내 약속방',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: darkBlue,
+                      ),
+                    ),
+                    Text(
+                      '${_rooms.length}개의 방',
+                      style: const TextStyle(color: Colors.grey, fontSize: 14),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: _rooms.isEmpty
+                      ? _buildEmptyState()
+                      : ListView.builder(
+                          itemCount: _rooms.length,
+                          itemBuilder: (context, index) {
+                            return _buildRoomCard(_rooms[index], index);
+                          },
+                        ),
+                ),
+              ],
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+        floatingActionButton: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                '함께 만드는 더 좋은 하루, 플랜잇',
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 14,
-                ),
+              FloatingActionButton(
+                heroTag: 'homeCalendar',
+                tooltip: '캘린더',
+                onPressed: _openCalendar,
+                backgroundColor: primaryBlue,
+                foregroundColor: Colors.white,
+                shape: const CircleBorder(),
+                child: const Icon(Icons.calendar_month_outlined, size: 28),
               ),
-              const SizedBox(height: 32),
-              Row(
-                mainAxisAlignment:
-                MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    '내 약속방',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: darkBlue,
-                    ),
-                  ),
-                  Text(
-                    '${_rooms.length}개의 방',
-                    style: const TextStyle(
-                      color: Colors.grey,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Expanded(
-                child: _rooms.isEmpty
-                    ? _buildEmptyState()
-                    : ListView.builder(
-                  itemCount: _rooms.length,
-                  itemBuilder: (context, index) {
-                    return _buildRoomCard(
-                      _rooms[index],
-                      index,
-                    );
-                  },
-                ),
+              FloatingActionButton(
+                heroTag: 'homeAddRoom',
+                tooltip: '약속방 추가',
+                onPressed: _showAddMenu,
+                backgroundColor: primaryBlue,
+                foregroundColor: Colors.white,
+                shape: const CircleBorder(),
+                child: const Icon(Icons.add, size: 30),
               ),
             ],
           ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddMenu,
-        backgroundColor: primaryBlue,
-        foregroundColor: Colors.white,
-        shape: const CircleBorder(),
-        child: const Icon(Icons.add, size: 30),
       ),
     );
   }

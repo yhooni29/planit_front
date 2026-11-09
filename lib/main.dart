@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
 
@@ -12,13 +11,11 @@ class MeetSyncApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'PlanIt',
+      title: '플랜잇',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF4F7CFF),
-        ),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4F7CFF)),
         scaffoldBackgroundColor: const Color(0xFFF8FAFC),
       ),
       home: const LoginScreen(),
