@@ -14,7 +14,7 @@ Dart 패키지 이름은 `meetsync`입니다.
 ## 브랜치 받아서 실행하기
 
 ```sh
-git clone --branch chore/dev-handoff https://github.com/yhooni29/planit_front.git
+git clone --branch main https://github.com/yhooni29/planit_front.git
 cd planit_front
 flutter --version
 flutter doctor
@@ -26,7 +26,8 @@ flutter run -d chrome --web-port=5173
 
 ```sh
 git fetch origin
-git switch chore/dev-handoff
+git switch main
+git pull --ff-only origin main
 flutter pub get --enforce-lockfile
 flutter run -d chrome --web-port=5173
 ```
