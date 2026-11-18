@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../services/firebase_accounts.dart';
 import '../widgets/planit_mascot.dart';
 import 'home_screen.dart';
 import 'profile/profile_widgets.dart';
 import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.accounts});
+
+  final FirebaseAccounts? accounts;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -16,6 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final idController = TextEditingController();
   final passwordController = TextEditingController();
   bool isPasswordVisible = false;
+  bool _loggingIn = false;
 
   @override
   void dispose() {
@@ -24,7 +28,8 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _login() {
+  Future<void> _login() async {
+    if (_loggingIn) return;
     final id = idController.text.trim();
     final password = passwordController.text;
     if (id.isEmpty || password.isEmpty) {
@@ -34,10 +39,45 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
     FocusScope.of(context).unfocus();
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => HomeScreen(loginId: id)),
-    );
+    final accounts = widget.accounts;
+    if (accounts == null) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => HomeScreen(loginId: id)),
+      );
+      return;
+    }
+
+    setState(() => _loggingIn = true);
+    try {
+      final repository = await accounts.signIn(id, password);
+      final profile = await repository.load();
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => HomeScreen(
+            loginId: profile.loginId,
+            profileRepository: repository,
+            accounts: accounts,
+          ),
+        ),
+      );
+    } catch (error) {
+      await accounts.signOut();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error is AccountException
+                ? error.message
+                : '로그인하지 못했어요. 아이디와 비밀번호를 확인해 주세요.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _loggingIn = false);
+    }
   }
 
   InputDecoration _decoration(String hint, IconData icon, {Widget? suffix}) =>
@@ -270,7 +310,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             SizedBox(height: compact ? 20 : 24),
                             ElevatedButton(
                               key: const ValueKey('login-submit'),
-                              onPressed: _login,
+                              onPressed: _loggingIn ? null : _login,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: profileBlue,
                                 foregroundColor: Colors.white,
@@ -310,15 +350,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                                 TextButton(
-                                  onPressed: () {
-                                    FocusScope.of(context).unfocus();
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const SignupScreen(),
-                                      ),
-                                    );
-                                  },
+                                  onPressed: _loggingIn
+                                      ? null
+                                      : () {
+                                          FocusScope.of(context).unfocus();
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => SignupScreen(
+                                                accounts: widget.accounts,
+                                              ),
+                                            ),
+                                          );
+                                        },
                                   style: TextButton.styleFrom(
                                     foregroundColor: profileBlue,
                                     padding: const EdgeInsets.symmetric(

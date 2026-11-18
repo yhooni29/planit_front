@@ -1,9 +1,17 @@
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
+import '../services/firebase_accounts.dart';
+import '../services/profile_photo.dart';
+import '../services/profile_repository.dart';
+import 'home_screen.dart';
+import 'profile/profile_widgets.dart';
 
 class SignupScreen extends StatefulWidget {
-  const SignupScreen({super.key});
+  const SignupScreen({super.key, this.accounts});
+
+  final FirebaseAccounts? accounts;
 
   @override
   State<SignupScreen> createState() => _SignupScreenState();
@@ -11,317 +19,286 @@ class SignupScreen extends StatefulWidget {
 
 class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
-
-  final _idController = TextEditingController();
-  final _nicknameController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _nameController = TextEditingController();
-  final _phoneController = TextEditingController();
-
+  final _id = TextEditingController();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
   bool _passwordVisible = false;
   bool _confirmVisible = false;
 
-  static const _blue = Color(0xFF4F7CFF);
-
   @override
   void dispose() {
-    _idController.dispose();
-    _nicknameController.dispose();
-    _passwordController.dispose();
-    _confirmController.dispose();
-    _emailController.dispose();
-    _nameController.dispose();
-    _phoneController.dispose();
+    _id.dispose();
+    _email.dispose();
+    _password.dispose();
     super.dispose();
   }
 
-  void _checkDuplicateId() {
-    final id = _idController.text.trim();
-
-    if (!RegExp(r'^[a-zA-Z0-9]{4,20}$').hasMatch(id)) {
-      _showMessage('아이디는 영문과 숫자 4~20자로 입력해 주세요.');
-      return;
-    }
-
-    // TODO: 백엔드의 아이디 중복 확인 API 연결
-    _showMessage('아이디 중복 확인은 서버 연결 후 사용할 수 있어요.');
-  }
-
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  }
-
-  void _submit() {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    // TODO: 서버 중복 확인 완료 여부 검증
-    // TODO: Firebase 또는 백엔드 회원가입 API 연결
-    _showMessage('입력 검증 완료! 실제 회원가입은 서버 연결 후 가능해요.');
-  }
-
-  Widget _field({
-    required String label,
-    required TextEditingController controller,
-    required String hint,
-    required String? Function(String?) validator,
-    TextInputType? keyboardType,
-    bool obscureText = false,
-    Widget? suffixIcon,
-    List<TextInputFormatter>? inputFormatters,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
-      child: TextFormField(
-        controller: controller,
-        keyboardType: keyboardType,
-        obscureText: obscureText,
-        inputFormatters: inputFormatters,
-        validator: validator,
-        autovalidateMode: AutovalidateMode.onUserInteraction,
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          suffixIcon: suffixIcon,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(
-              color: _blue,
-              width: 2,
-            ),
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 16,
+  Future<void> _next() async {
+    if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+    final accounts = widget.accounts ?? FirebaseAccounts();
+    final id = _id.text.trim();
+    final email = _email.text.trim();
+    final password = _password.text;
+    final repository = await Navigator.of(context).push<ProfileRepository>(
+      MaterialPageRoute(
+        builder: (_) => _SignupProfileScreen(
+          register: (nickname, photo) => accounts.register(
+            id: id,
+            email: email,
+            password: password,
+            nickname: nickname,
+            photo: photo,
           ),
         ),
       ),
     );
+    if (!mounted || repository == null) return;
+    Navigator.of(context).pushAndRemoveUntil<void>(
+      MaterialPageRoute(
+        builder: (_) => HomeScreen(
+          loginId: id,
+          profileRepository: repository,
+          accounts: accounts,
+        ),
+      ),
+      (_) => false,
+    );
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text('회원가입'),
-        backgroundColor: const Color(0xFFF8FAFC),
-        centerTitle: true,
+  Widget build(BuildContext context) => _SignupForm(
+    title: '회원가입',
+    formKey: _formKey,
+    children: [
+      _SignupField(
+        label: '아이디',
+        controller: _id,
+        hint: '영문 및 숫자 4~20자',
+        autofillHints: const [AutofillHints.newUsername],
+        validator: (value) =>
+            RegExp(r'^[a-zA-Z0-9]{4,20}$').hasMatch(value.trim())
+            ? null
+            : '영문 및 숫자 4~20자로 입력해 주세요.',
       ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+      _SignupField(
+        label: '이메일',
+        controller: _email,
+        keyboardType: TextInputType.emailAddress,
+        autofillHints: const [AutofillHints.email],
+        validator: (value) =>
+            value.trim().length <= 254 &&
+                RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value.trim())
+            ? null
+            : '올바른 이메일을 입력해 주세요.',
+      ),
+      _SignupField(
+        label: '비밀번호',
+        controller: _password,
+        hint: '8자 이상',
+        autofillHints: const [AutofillHints.newPassword],
+        obscureText: !_passwordVisible,
+        visibilityToggle: () =>
+            setState(() => _passwordVisible = !_passwordVisible),
+        validator: (value) => value.length >= 8 ? null : '비밀번호는 8자 이상이어야 합니다.',
+      ),
+      _SignupField(
+        label: '비밀번호 확인',
+        obscureText: !_confirmVisible,
+        visibilityToggle: () =>
+            setState(() => _confirmVisible = !_confirmVisible),
+        validator: (value) {
+          if (value.isEmpty) return '비밀번호를 다시 입력해 주세요.';
+          if (value != _password.text) return '비밀번호가 일치하지 않습니다.';
+          return null;
+        },
+      ),
+      FilledButton(onPressed: _next, child: const Text('다음')),
+    ],
+  );
+}
+
+class _SignupProfileScreen extends StatefulWidget {
+  const _SignupProfileScreen({required this.register});
+
+  final Future<ProfileRepository> Function(String, Uint8List?) register;
+
+  @override
+  State<_SignupProfileScreen> createState() => _SignupProfileScreenState();
+}
+
+class _SignupProfileScreenState extends State<_SignupProfileScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _nickname = TextEditingController();
+  Uint8List? _photo;
+  bool _picking = false;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _nickname.dispose();
+    super.dispose();
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _pickPhoto() async {
+    setState(() => _picking = true);
+    try {
+      final photo = await pickProfilePhoto(
+        maxBytes: FirebaseProfileRepository.photoLimit,
+      );
+      if (mounted && photo != null) setState(() => _photo = photo);
+    } catch (_) {
+      if (mounted) _showMessage('사진을 열지 못했어요. 750KB 이하의 이미지를 선택해 주세요.');
+    } finally {
+      if (mounted) setState(() => _picking = false);
+    }
+  }
+
+  Future<void> _finish() async {
+    if (_saving || _picking || !_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _saving = true);
+    try {
+      final repository = await widget.register(_nickname.text.trim(), _photo);
+      if (!mounted) return;
+      Navigator.of(context).pop(repository);
+    } on AccountException catch (error) {
+      if (mounted) _showMessage(error.message);
+    } catch (_) {
+      if (mounted) _showMessage('회원가입을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: !_saving,
+    child: _SignupForm(
+      title: '프로필 설정',
+      formKey: _formKey,
+      children: [
+        Center(child: ProfileAvatar(bytes: _photo, radius: 48)),
+        const SizedBox(height: 12),
+        Center(
+          child: OutlinedButton.icon(
+            onPressed: _saving || _picking ? null : _pickPhoto,
+            icon: const Icon(Icons.photo_library_outlined),
+            label: Text(_photo == null ? '프로필 사진 선택' : '프로필 사진 변경'),
+          ),
+        ),
+        const SizedBox(height: 24),
+        _SignupField(
+          label: '닉네임',
+          controller: _nickname,
+          enabled: !_saving,
+          hint: '2~12자',
+          validator: (value) =>
+              value.trim().length >= 2 && value.trim().length <= 12
+              ? null
+              : '닉네임은 2~12자로 입력해 주세요.',
+        ),
+        FilledButton(
+          onPressed: _saving || _picking ? null : _finish,
+          child: Text(_saving ? '저장 중…' : '회원가입 완료'),
+        ),
+      ],
+    ),
+  );
+}
+
+class _SignupForm extends StatelessWidget {
+  const _SignupForm({
+    required this.title,
+    required this.formKey,
+    required this.children,
+  });
+
+  final String title;
+  final GlobalKey<FormState> formKey;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(title), centerTitle: true),
+    body: SafeArea(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: AutofillGroup(
               child: Form(
-                key: _formKey,
+                key: formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'PlanIt 시작하기',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF142F5F),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      '함께 만드는 더 좋은 하루, 플랜잇',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-
-                    // 아이디 및 중복 확인
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: _field(
-                            label: '아이디',
-                            hint: '영문, 숫자 4~20자',
-                            controller: _idController,
-                            validator: (value) {
-                              if (!RegExp(r'^[a-zA-Z0-9]{4,20}$')
-                                  .hasMatch(value?.trim() ?? '')) {
-                                return '영문과 숫자 4~20자로 입력해 주세요.';
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 5),
-                          child: OutlinedButton(
-                            onPressed: _checkDuplicateId,
-                            child: const Text('중복 확인'),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    _field(
-                      label: '닉네임',
-                      hint: '2~12자',
-                      controller: _nicknameController,
-                      validator: (value) {
-                        final text = value?.trim() ?? '';
-                        if (text.length < 2 || text.length > 12) {
-                          return '닉네임은 2~12자로 입력해 주세요.';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    _field(
-                      label: '비밀번호',
-                      hint: '8자 이상',
-                      controller: _passwordController,
-                      obscureText: !_passwordVisible,
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _passwordVisible
-                              ? Icons.visibility
-                              : Icons.visibility_off,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _passwordVisible = !_passwordVisible;
-                          });
-                        },
-                      ),
-                      validator: (value) {
-                        if ((value ?? '').length < 8) {
-                          return '비밀번호는 8자 이상이어야 합니다.';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    _field(
-                      label: '비밀번호 확인',
-                      hint: '비밀번호를 다시 입력해 주세요',
-                      controller: _confirmController,
-                      obscureText: !_confirmVisible,
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _confirmVisible
-                              ? Icons.visibility
-                              : Icons.visibility_off,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _confirmVisible = !_confirmVisible;
-                          });
-                        },
-                      ),
-                      validator: (value) {
-                        if (value != _passwordController.text) {
-                          return '비밀번호가 일치하지 않습니다.';
-                        }
-                        if ((value ?? '').isEmpty) {
-                          return '비밀번호를 확인해 주세요.';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    _field(
-                      label: '이메일',
-                      hint: 'example@email.com',
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) {
-                        final email = value?.trim() ?? '';
-                        if (!RegExp(
-                          r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
-                        ).hasMatch(email)) {
-                          return '올바른 이메일을 입력해 주세요.';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    _field(
-                      label: '이름',
-                      hint: '실명을 입력해 주세요',
-                      controller: _nameController,
-                      validator: (value) {
-                        if ((value ?? '').trim().isEmpty) {
-                          return '이름을 입력해 주세요.';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    _field(
-                      label: '전화번호',
-                      hint: '01012345678',
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(11),
-                      ],
-                      validator: (value) {
-                        if (!RegExp(r'^\d{10,11}$')
-                            .hasMatch(value ?? '')) {
-                          return '전화번호 10~11자리를 입력해 주세요.';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    SizedBox(
-                      height: 54,
-                      child: ElevatedButton(
-                        onPressed: _submit,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _blue,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          '회원가입',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('이미 계정이 있으신가요? 로그인'),
-                    ),
-                  ],
+                  children: children,
                 ),
               ),
             ),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
+class _SignupField extends StatelessWidget {
+  const _SignupField({
+    required this.label,
+    required this.validator,
+    this.controller,
+    this.hint,
+    this.keyboardType,
+    this.autofillHints,
+    this.obscureText = false,
+    this.enabled = true,
+    this.visibilityToggle,
+  });
+
+  final String label;
+  final String? Function(String) validator;
+  final TextEditingController? controller;
+  final String? hint;
+  final TextInputType? keyboardType;
+  final Iterable<String>? autofillHints;
+  final bool obscureText;
+  final bool enabled;
+  final VoidCallback? visibilityToggle;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 18),
+    child: TextFormField(
+      controller: controller,
+      enabled: enabled,
+      keyboardType: keyboardType,
+      autofillHints: autofillHints,
+      obscureText: obscureText,
+      autocorrect: false,
+      enableSuggestions: visibilityToggle == null,
+      validator: (value) => validator(value ?? ''),
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        suffixIcon: visibilityToggle == null
+            ? null
+            : IconButton(
+                onPressed: visibilityToggle,
+                tooltip: obscureText ? '비밀번호 보기' : '비밀번호 숨기기',
+                icon: Icon(
+                  obscureText ? Icons.visibility_off : Icons.visibility,
+                ),
+              ),
+      ),
+    ),
+  );
 }

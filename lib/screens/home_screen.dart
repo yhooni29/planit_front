@@ -6,6 +6,7 @@ import '../models/plan_room.dart';
 import '../models/calendar_event.dart';
 import '../models/user_profile.dart';
 import '../services/profile_repository.dart';
+import '../services/firebase_accounts.dart';
 import '../services/rooms_controller.dart';
 import '../services/calendar_controller.dart';
 import 'calendar/calendar_screen.dart';
@@ -21,9 +22,16 @@ import 'rooms/ai_result_screen.dart';
 import 'rooms/rooms_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.loginId});
+  const HomeScreen({
+    super.key,
+    required this.loginId,
+    this.profileRepository,
+    this.accounts,
+  });
 
   final String loginId;
+  final ProfileRepository? profileRepository;
+  final FirebaseAccounts? accounts;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -34,7 +42,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   final _roomsController = RoomsController(rooms: []);
   late final CalendarController _calendarController;
-  late final MemoryProfileRepository _profileRepository;
+  late final ProfileRepository _profileRepository;
   late final Timer _clock;
 
   List<PlanRoom> get _rooms => _roomsController.rooms;
@@ -47,15 +55,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (mounted) setState(() {});
     });
     _calendarController = CalendarController(roomsController: _roomsController);
-    // Local session only, until the authentication/profile APIs are connected.
-    _profileRepository = MemoryProfileRepository(
-      initialProfile: UserProfile(
-        userId: widget.loginId,
-        nickname: '플래너',
-        email: '',
-        loginId: widget.loginId,
-      ),
-    );
+    _profileRepository =
+        widget.profileRepository ??
+        MemoryProfileRepository(
+          initialProfile: UserProfile(
+            userId: widget.loginId,
+            nickname: '플래너',
+            email: '',
+            loginId: widget.loginId,
+          ),
+        );
   }
 
   @override
@@ -73,8 +82,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _logout() async {
+    try {
+      await widget.accounts?.signOut();
+    } catch (_) {
+      if (mounted) _showMessage('로그아웃하지 못했어요. 다시 시도해 주세요.');
+      return;
+    }
+    if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil<void>(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      MaterialPageRoute(builder: (_) => LoginScreen(accounts: widget.accounts)),
       (_) => false,
     );
   }

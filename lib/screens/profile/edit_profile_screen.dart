@@ -1,9 +1,9 @@
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../models/user_profile.dart';
 import '../../services/profile_repository.dart';
+import '../../services/firebase_accounts.dart';
+import '../../services/profile_photo.dart';
 import 'account_edit_screen.dart';
 import 'profile_widgets.dart';
 
@@ -43,29 +43,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _pickPhoto() async {
     setState(() => _picking = true);
     try {
-      final file = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 85,
+      final firebaseProfile = widget.repository is FirebaseProfileRepository;
+      final bytes = await pickProfilePhoto(
+        maxBytes: firebaseProfile
+            ? FirebaseProfileRepository.photoLimit
+            : 5 * 1024 * 1024,
       );
-      if (file == null) return;
-      if (await file.length() > 5 * 1024 * 1024) {
-        throw StateError('Image exceeds 5 MB');
-      }
-      final bytes = await file.readAsBytes();
-      final codec = await ui.instantiateImageCodec(bytes, targetWidth: 128);
-      try {
-        final frame = await codec.getNextFrame();
-        frame.image.dispose();
-      } finally {
-        codec.dispose();
-      }
-      if (mounted) setState(() => _photo = bytes);
+      if (mounted && bytes != null) setState(() => _photo = bytes);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('사진을 열지 못했어요. 5MB 이하의 이미지로 다시 선택해 주세요.')),
+        SnackBar(
+          content: Text(
+            widget.repository is FirebaseProfileRepository
+                ? '사진을 열지 못했어요. 750KB 이하의 이미지를 선택해 주세요.'
+                : '사진을 열지 못했어요. 5MB 이하의 이미지로 다시 선택해 주세요.',
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _picking = false);
