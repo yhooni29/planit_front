@@ -260,7 +260,7 @@ void main() {
           home: CalendarScreen(controller: calendar, today: date),
         ),
       );
-      expect(find.text('planit'), findsOneWidget);
+      expect(find.text('Planit'), findsOneWidget);
       await tester.tap(find.byTooltip('달력 설정'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('분류별 색상'));

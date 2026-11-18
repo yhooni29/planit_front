@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/support_config.dart';
 import 'profile_widgets.dart';
@@ -67,27 +66,12 @@ class _SupportScreenState extends State<SupportScreen> {
       _notice(
         opened
             ? '메일 작성 화면을 열었어요. 메일 앱에서 전송을 완료해 주세요.'
-            : '메일 앱을 열지 못했어요. 문의 내용을 복사해 직접 보내주세요.',
+            : '메일 앱을 열지 못했어요. 다시 시도해 주세요.',
       );
     } catch (_) {
-      if (mounted) _notice('메일 앱을 열지 못했어요. 문의 내용을 복사해 직접 보내주세요.');
+      if (mounted) _notice('메일 앱을 열지 못했어요. 다시 시도해 주세요.');
     } finally {
       if (mounted) setState(() => _opening = false);
-    }
-  }
-
-  Future<void> _copy() async {
-    if (!_validate()) return;
-    try {
-      await Clipboard.setData(
-        ClipboardData(
-          text:
-              '${_configured ? '받는 사람: $_recipient\n' : ''}제목: [플랜잇 1:1 문의] ${_subject.text.trim()}\n\n${_message.text.trim()}',
-        ),
-      );
-      if (mounted) _notice('문의 내용을 복사했어요.');
-    } catch (_) {
-      if (mounted) _notice('복사하지 못했어요. 작성한 내용을 직접 복사해 주세요.');
     }
   }
 
@@ -188,13 +172,7 @@ class _SupportScreenState extends State<SupportScreen> {
               icon: const Icon(Icons.mail_outline, size: 19),
               label: Text(_opening ? '메일 앱 여는 중…' : '메일 앱으로 보내기'),
             ),
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: _opening ? null : _copy,
-              icon: const Icon(Icons.copy_outlined, size: 17),
-              label: const Text('문의 내용 복사'),
-            ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 14),
             const Text(
               '메일 앱에서 전송을 완료하면 문의가 전달돼요.',
               textAlign: TextAlign.center,

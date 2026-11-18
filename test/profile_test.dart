@@ -72,20 +72,17 @@ void main() {
       await tester.pumpAndSettle();
       await tapVisible(tester, find.text('나의 정보 수정'));
       expect(find.text('선호 지역'), findsNothing);
+      expect(find.byKey(const ValueKey('homeAddress')), findsNothing);
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('nickname')),
         200,
         scrollable: find.byType(Scrollable).first,
       );
       await tester.enterText(find.byKey(const ValueKey('nickname')), '새 닉네임');
-      await tester.enterText(
-        find.byKey(const ValueKey('homeAddress')),
-        '테스트 주소',
-      );
       await tapVisible(tester, find.text('변경사항 저장'));
       final saved = await repository.load();
       expect(saved.nickname, '새 닉네임');
-      expect(saved.homeAddress, '테스트 주소');
+      expect(saved.homeAddress, isEmpty);
       expect(saved.preferences.mbti, 'INFP');
       expect(saved.loginId, 'planner');
       await tapVisible(tester, find.text('나의 정보 수정'));

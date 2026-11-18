@@ -424,7 +424,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   TextSpan(
                     children: [
                       TextSpan(
-                        text: 'plan',
+                        text: 'Plan',
                         style: TextStyle(color: _ink),
                       ),
                       TextSpan(

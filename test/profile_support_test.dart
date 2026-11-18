@@ -50,6 +50,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('1:1 문의'), findsOneWidget);
       await reveal(tester, find.text('메일 앱으로 보내기'));
+      expect(find.text('문의 내용 복사'), findsNothing);
       expect(tester.takeException(), isNull);
       expect(
         tester
@@ -114,7 +115,7 @@ void main() {
       expect(uri!.path, 'support@example.com');
       expect(uri!.queryParameters['subject'], '[플랜잇 1:1 문의] 문의 & 도움 + 질문');
       expect(uri!.queryParameters['body'], '첫 줄 + 공백\n다음 줄 & 내용');
-      expect(find.text('메일 앱을 열지 못했어요. 문의 내용을 복사해 직접 보내주세요.'), findsOneWidget);
+      expect(find.text('메일 앱을 열지 못했어요. 다시 시도해 주세요.'), findsOneWidget);
       final state = tester.state(find.byType(SupportScreen));
       expect(state.mounted, isTrue);
       await reveal(tester, find.byKey(const ValueKey('supportSubject')));
