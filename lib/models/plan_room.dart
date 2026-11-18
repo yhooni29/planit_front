@@ -1,3 +1,5 @@
+import 'calendar_event.dart';
+
 enum RoomStatus {
   collecting('취향 모으는 중'),
   recommended('코스 확인하기'),
@@ -16,6 +18,12 @@ class RoomMember {
   final String name;
   final bool submitted;
   final String summary;
+
+  RoomMember copyWith({bool? submitted, String? summary}) => RoomMember(
+    name: name,
+    submitted: submitted ?? this.submitted,
+    summary: summary ?? this.summary,
+  );
 }
 
 class CourseStop {
@@ -39,6 +47,7 @@ class PlanRoom {
     required List<RoomMember> members,
     this.status = RoomStatus.collecting,
     this.capacity = 8,
+    this.category = EventCategory.personal,
     List<CourseStop> course = const [],
   }) : members = List.unmodifiable(members),
        course = List.unmodifiable(course);
@@ -51,6 +60,7 @@ class PlanRoom {
   final List<RoomMember> members;
   final RoomStatus status;
   final int capacity;
+  final EventCategory category;
   final List<CourseStop> course;
 
   int get submittedCount => members.where((member) => member.submitted).length;
@@ -58,19 +68,22 @@ class PlanRoom {
       members.isNotEmpty && submittedCount == members.length;
 
   PlanRoom copyWith({
+    List<RoomMember>? members,
     RoomStatus? status,
     List<CourseStop>? course,
     DateTime? date,
     bool clearDate = false,
+    EventCategory? category,
   }) => PlanRoom(
     id: id,
     title: title,
     date: clearDate ? null : date ?? this.date,
     region: region,
     inviteCode: inviteCode,
-    members: members,
+    members: members ?? this.members,
     status: status ?? this.status,
     capacity: capacity,
+    category: category ?? this.category,
     course: course ?? this.course,
   );
 }

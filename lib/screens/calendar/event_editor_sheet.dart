@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../models/calendar_event.dart';
 import '../../services/calendar_controller.dart';
+import '../../widgets/scroll_time_picker.dart';
+import '../profile/profile_widgets.dart';
 
 String calendarDateLabel(DateTime date) {
   const days = ['월', '화', '수', '목', '금', '토', '일'];
@@ -21,16 +23,19 @@ Future<bool?> showEventEditor(
   isScrollControlled: true,
   useSafeArea: true,
   backgroundColor: Colors.transparent,
-  builder: (sheetContext) => Padding(
-    padding: EdgeInsets.only(
-      bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-    ),
-    child: FractionallySizedBox(
-      heightFactor: .94,
-      child: EventEditorSheet(
-        controller: controller,
-        initialDate: date,
-        event: event,
+  builder: (sheetContext) => Theme(
+    data: profileTheme(sheetContext),
+    child: Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+      ),
+      child: FractionallySizedBox(
+        heightFactor: .94,
+        child: EventEditorSheet(
+          controller: controller,
+          initialDate: date,
+          event: event,
+        ),
       ),
     ),
   ),
@@ -57,12 +62,16 @@ class _EventEditorSheetState extends State<EventEditorSheet> {
   late final TextEditingController _title;
   late final TextEditingController _location;
   late final TextEditingController _notes;
+  late final DateTime _startDate;
   late DateTime _start;
   late DateTime _end;
   late bool _allDay;
   late EventRepeat _repeat;
   late EventCategory _category;
   int? _reminderMinutes;
+
+  bool get _endUses24Hour => !_allDay && _end.hour == 0 && _end.minute == 0;
+  bool get _startUses24Hour => !_allDay && calendarDay(_start) != _startDate;
 
   @override
   void initState() {
@@ -73,6 +82,7 @@ class _EventEditorSheetState extends State<EventEditorSheet> {
     _notes = TextEditingController(text: event?.notes);
     final date = widget.initialDate;
     _start = event?.start ?? DateTime(date.year, date.month, date.day, 9);
+    _startDate = calendarDay(_start);
     _end = event?.end ?? _start.add(const Duration(hours: 1));
     _allDay = event?.allDay ?? false;
     _repeat = event?.repeat ?? EventRepeat.none;
@@ -91,33 +101,37 @@ class _EventEditorSheetState extends State<EventEditorSheet> {
   Future<void> _pickDateTime(bool isStart) async {
     FocusManager.instance.primaryFocus?.unfocus();
     final initial = isStart
-        ? _start
-        : _allDay
+        ? _startDate
+        : _allDay || _endUses24Hour
         ? DateTime(_end.year, _end.month, _end.day - 1)
         : _end;
-    final date = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(1900),
-      lastDate: DateTime(2200, 12, 31),
-      helpText: isStart ? '시작 날짜' : '종료 날짜',
-    );
-    if (date == null || !mounted) return;
+    var date = calendarDay(initial);
+    if (!isStart) {
+      final selectedDate = await showDatePicker(
+        context: context,
+        initialDate: initial,
+        firstDate: DateTime(1900),
+        lastDate: DateTime(2200, 12, 31),
+        helpText: '종료 날짜',
+      );
+      if (selectedDate == null || !mounted) return;
+      date = selectedDate;
+    }
     DateTime picked = date;
     if (!_allDay) {
-      final time = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.fromDateTime(initial),
-        helpText: isStart ? '시작 시간' : '종료 시간',
+      final time = await showScrollTimePicker(
+        context,
+        initialMinutes: isStart
+            ? _startUses24Hour
+                  ? 1440
+                  : _start.hour * 60 + _start.minute
+            : _endUses24Hour
+            ? 1440
+            : initial.hour * 60 + initial.minute,
+        title: isStart ? '시작 시간' : '종료 시간',
       );
       if (time == null || !mounted) return;
-      picked = DateTime(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
-      );
+      picked = scrollTimeOnDate(date, time);
     } else if (!isStart) {
       picked = DateTime(date.year, date.month, date.day + 1);
     }
@@ -144,12 +158,12 @@ class _EventEditorSheetState extends State<EventEditorSheet> {
   void _toggleAllDay() {
     setState(() {
       if (!_allDay) {
-        _start = calendarDay(_start);
+        _start = _startDate;
         _end = _end == calendarDay(_end)
             ? _end
             : DateTime(_end.year, _end.month, _end.day + 1);
       } else {
-        _start = DateTime(_start.year, _start.month, _start.day, 9);
+        _start = DateTime(_startDate.year, _startDate.month, _startDate.day, 9);
         _end = DateTime(_end.year, _end.month, _end.day - 1, 10);
       }
       _allDay = !_allDay;
@@ -212,7 +226,7 @@ class _EventEditorSheetState extends State<EventEditorSheet> {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: Colors.white,
+    color: profileSurface,
     borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
     clipBehavior: Clip.antiAlias,
     child: SafeArea(
@@ -224,7 +238,7 @@ class _EventEditorSheetState extends State<EventEditorSheet> {
             width: 34,
             height: 4,
             decoration: BoxDecoration(
-              color: const Color(0xFFCCCCCE),
+              color: const Color(0xFFBFD8E8),
               borderRadius: BorderRadius.circular(3),
             ),
           ),
@@ -273,7 +287,7 @@ class _EventEditorSheetState extends State<EventEditorSheet> {
                         hintText: '제목',
                         counterText: '',
                         border: InputBorder.none,
-                        hintStyle: TextStyle(color: Color(0xFFCCCCCE)),
+                        hintStyle: TextStyle(color: Color(0xFF91ADBF)),
                       ),
                       validator: (text) => text == null || text.trim().isEmpty
                           ? '제목을 입력해 주세요.'
@@ -282,14 +296,17 @@ class _EventEditorSheetState extends State<EventEditorSheet> {
                     if (widget.event != null && _repeat != EventRepeat.none)
                       const Text(
                         '수정하면 모든 반복 일정에 적용돼요.',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF6C879A),
+                        ),
                       ),
                     const SizedBox(height: 30),
                     Row(
                       children: [
                         const Icon(
                           Icons.schedule_outlined,
-                          color: Color(0xFF757578),
+                          color: Color(0xFF6C879A),
                           size: 22,
                         ),
                         const SizedBox(width: 10),
@@ -307,8 +324,8 @@ class _EventEditorSheetState extends State<EventEditorSheet> {
                         onSelected: (_) => _toggleAllDay(),
                         showCheckmark: false,
                         backgroundColor: Colors.white,
-                        selectedColor: const Color(0xFFEDEBF8),
-                        side: const BorderSide(color: Color(0xFFE1E1E5)),
+                        selectedColor: profileButton,
+                        side: const BorderSide(color: Color(0xFFD5E6EF)),
                         shape: const StadiumBorder(),
                       ),
                     ),
@@ -337,9 +354,7 @@ class _EventEditorSheetState extends State<EventEditorSheet> {
                         onSelected: (value) =>
                             setState(() => _category = value),
                         itemBuilder: (_) => [
-                          for (final value in EventCategory.values.where(
-                            (v) => v != EventCategory.appointment,
-                          ))
+                          for (final value in EventCategory.selectable)
                             PopupMenuItem(
                               value: value,
                               child: Text(value.label),
@@ -347,7 +362,7 @@ class _EventEditorSheetState extends State<EventEditorSheet> {
                         ],
                         child: _pill(
                           '●  ${_category.label}',
-                          color: Color(_category.colorValue),
+                          color: Color(widget.controller.colorFor(_category)),
                         ),
                       ),
                     ),
@@ -382,7 +397,10 @@ class _EventEditorSheetState extends State<EventEditorSheet> {
                         padding: EdgeInsets.only(left: 36, bottom: 8),
                         child: Text(
                           '알림 시간은 저장되며, 기기 알림은 추후 지원 예정이에요.',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF6C879A),
+                          ),
                         ),
                       ),
                     const SizedBox(height: 14),
@@ -397,7 +415,7 @@ class _EventEditorSheetState extends State<EventEditorSheet> {
                         counterText: '',
                       ),
                     ),
-                    const Divider(color: Color(0xFFF2F2F4)),
+                    const Divider(color: Color(0xFFE1EDF5)),
                     TextFormField(
                       key: const ValueKey('event-notes'),
                       controller: _notes,
@@ -423,14 +441,14 @@ class _EventEditorSheetState extends State<EventEditorSheet> {
                 key: const ValueKey('save-event'),
                 onPressed: _save,
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF292929),
+                  backgroundColor: profileBlue,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 26,
                     vertical: 16,
                   ),
                   shape: const StadiumBorder(),
-                  elevation: 8,
+                  elevation: 0,
                 ),
                 icon: const Icon(Icons.check),
                 label: const Text('저장', style: TextStyle(fontSize: 16)),
@@ -444,15 +462,15 @@ class _EventEditorSheetState extends State<EventEditorSheet> {
 
   Widget _dateButton(bool isStart) {
     final date = isStart
-        ? _start
-        : _allDay
+        ? _startDate
+        : _allDay || _endUses24Hour
         ? DateTime(_end.year, _end.month, _end.day - 1)
         : _end;
     return TextButton(
       key: ValueKey(isStart ? 'event-start' : 'event-end'),
-      onPressed: () => _pickDateTime(isStart),
+      onPressed: isStart && _allDay ? null : () => _pickDateTime(isStart),
       style: TextButton.styleFrom(
-        foregroundColor: const Color(0xFF292929),
+        foregroundColor: profileInk,
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
       ),
       child: Column(
@@ -467,7 +485,15 @@ class _EventEditorSheetState extends State<EventEditorSheet> {
           const SizedBox(height: 3),
           FittedBox(
             child: Text(
-              _allDay ? '하루종일' : calendarTimeLabel(date),
+              _allDay
+                  ? '하루종일'
+                  : isStart
+                  ? _startUses24Hour
+                        ? '24:00'
+                        : calendarTimeLabel(_start)
+                  : !isStart && _endUses24Hour
+                  ? '24:00'
+                  : calendarTimeLabel(date),
               style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w700),
             ),
           ),
@@ -480,7 +506,7 @@ class _EventEditorSheetState extends State<EventEditorSheet> {
     padding: const EdgeInsets.symmetric(vertical: 9),
     child: Row(
       children: [
-        Icon(icon, color: const Color(0xFF757578), size: 22),
+        Icon(icon, color: const Color(0xFF6C879A), size: 22),
         const SizedBox(width: 14),
         child,
       ],
@@ -490,12 +516,12 @@ class _EventEditorSheetState extends State<EventEditorSheet> {
   Widget _pill(String label, {Color? color}) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
     decoration: BoxDecoration(
-      color: const Color(0xFFF5F5F7),
+      color: profileWell,
       borderRadius: BorderRadius.circular(24),
     ),
     child: Text(
       label,
-      style: TextStyle(color: color ?? const Color(0xFF454548), fontSize: 15),
+      style: TextStyle(color: color ?? profileInk, fontSize: 15),
     ),
   );
 }

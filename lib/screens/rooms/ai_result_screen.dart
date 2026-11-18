@@ -66,7 +66,7 @@ class AiResultScreen extends StatelessWidget {
                 children: [
                   const Icon(
                     Icons.auto_awesome_outlined,
-                    color: roomOrange,
+                    color: roomBlue,
                     size: 36,
                   ),
                   const SizedBox(height: 16),
@@ -93,7 +93,7 @@ class AiResultScreen extends StatelessWidget {
                         Text(
                           '코스 예시',
                           style: TextStyle(
-                            color: roomOrange,
+                            color: roomBlue,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -123,13 +123,13 @@ class AiResultScreen extends StatelessWidget {
                                 height: 32,
                                 alignment: Alignment.center,
                                 decoration: const BoxDecoration(
-                                  color: Color(0xFFFFEEE4),
+                                  color: roomTint,
                                   shape: BoxShape.circle,
                                 ),
                                 child: Text(
                                   '${i + 1}',
                                   style: const TextStyle(
-                                    color: roomOrange,
+                                    color: roomBlue,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
@@ -142,7 +142,7 @@ class AiResultScreen extends StatelessWidget {
                                     Text(
                                       room.course[i].time,
                                       style: const TextStyle(
-                                        color: roomOrange,
+                                        color: roomBlue,
                                         fontSize: 13,
                                         fontWeight: FontWeight.w600,
                                       ),

@@ -18,10 +18,18 @@ enum EventCategory {
   const EventCategory(this.label, this.colorValue);
   final String label;
   final int colorValue;
+
+  static const selectable = [personal, work, school];
 }
 
 DateTime calendarDay(DateTime value) =>
     DateTime(value.year, value.month, value.day);
+
+String calendarDdayLabel(DateTime target, DateTime today) {
+  final days = _dayDistance(today, target);
+  if (days == 0) return 'D-DAY';
+  return days > 0 ? 'D-$days' : 'D+${-days}';
+}
 
 int _dayDistance(DateTime from, DateTime to) => DateTime.utc(
   to.year,
@@ -56,6 +64,25 @@ class CalendarEvent {
   final String location;
   final String notes;
   final String? roomId;
+
+  /// Includes an occurrence in progress. Skips missing month days and leap years.
+  CalendarEntry? nextEntry(DateTime from) {
+    if (repeat == EventRepeat.none) {
+      return end.isAfter(from)
+          ? CalendarEntry(event: this, start: start, end: end)
+          : null;
+    }
+    var day = calendarDay(from.isBefore(start) ? start : from);
+    // Eight years covers the Feb 29 gap across a non-leap century such as 2100.
+    final limit = DateTime(day.year + 8, day.month, day.day + 1);
+    while (day.isBefore(limit)) {
+      for (final entry in entriesOn(day)) {
+        if (entry.end.isAfter(from)) return entry;
+      }
+      day = DateTime(day.year, day.month, day.day + 1);
+    }
+    return null;
+  }
 
   Iterable<CalendarEntry> entriesOn(DateTime value) sync* {
     final day = calendarDay(value);

@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../models/calendar_event.dart';
 import '../../services/calendar_controller.dart';
+import '../../widgets/planit_mascot.dart';
+import '../profile/profile_widgets.dart';
 import 'event_editor_sheet.dart';
+import 'calendar_colors_sheet.dart';
 
-const _ink = Color(0xFF2D2D2F);
-const _muted = Color(0xFF929295);
+const _ink = profileInk;
+const _muted = Color(0xFF6C879A);
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({
@@ -65,6 +68,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
       firstDate: DateTime(1900),
       lastDate: DateTime(2200, 12, 31),
       helpText: '이동할 날짜',
+      builder: (context, child) =>
+          Theme(data: profileTheme(context), child: child!),
     );
     if (date != null && mounted) _select(date);
   }
@@ -113,47 +118,50 @@ class _CalendarScreenState extends State<CalendarScreen> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      backgroundColor: Colors.white,
-      builder: (sheetContext) => SafeArea(
-        child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * .65,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  '${_month.year}년 ${_month.month}월 일정 목록',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
+      backgroundColor: profileSurface,
+      builder: (sheetContext) => Theme(
+        data: profileTheme(sheetContext),
+        child: SafeArea(
+          child: SizedBox(
+            height: MediaQuery.sizeOf(context).height * .65,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    '${_month.year}년 ${_month.month}월 일정 목록',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-              ),
-              Expanded(
-                child: entries.isEmpty
-                    ? const Center(child: Text('이번 달에 등록된 일정이 없어요.'))
-                    : ListView.builder(
-                        itemCount: entries.length,
-                        itemBuilder: (_, index) {
-                          final item = entries[index];
-                          return ListTile(
-                            leading: Text(
-                              '${item.day.day}',
-                              style: const TextStyle(fontSize: 23),
-                            ),
-                            title: Text(item.entry.event.title),
-                            subtitle: Text(
-                              '${item.entry.event.category.label} · ${item.entry.event.allDay ? '하루종일' : calendarTimeLabel(item.entry.start)}',
-                            ),
-                            onTap: () {
-                              Navigator.pop(sheetContext);
-                              _select(item.day);
-                            },
-                          );
-                        },
-                      ),
-              ),
-            ],
+                Expanded(
+                  child: entries.isEmpty
+                      ? const Center(child: Text('이번 달에 등록된 일정이 없어요.'))
+                      : ListView.builder(
+                          itemCount: entries.length,
+                          itemBuilder: (_, index) {
+                            final item = entries[index];
+                            return ListTile(
+                              leading: Text(
+                                '${item.day.day}',
+                                style: const TextStyle(fontSize: 23),
+                              ),
+                              title: Text(item.entry.event.title),
+                              subtitle: Text(
+                                '${item.entry.event.category.label} · ${item.entry.event.allDay ? '하루종일' : calendarTimeLabel(item.entry.start)}',
+                              ),
+                              onTap: () {
+                                Navigator.pop(sheetContext);
+                                _select(item.day);
+                              },
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -161,210 +169,230 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: Colors.white,
-    body: SafeArea(
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
-          child: ListenableBuilder(
-            listenable: widget.controller,
-            builder: (context, _) => LayoutBuilder(
-              builder: (context, constraints) {
-                final days = _days;
-                final weeks = days.length ~/ 7;
-                final cellHeight = (constraints.maxHeight * .57 / weeks).clamp(
-                  64.0,
-                  108.0,
-                );
-                final selectedEntries = widget.controller.entriesOn(_selected);
-                return Column(
-                  children: [
-                    _header(),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 18, right: 8),
-                      child: Row(
-                        children: [
-                          Text(
-                            '${_month.year}년 ${_month.month}월',
-                            style: const TextStyle(fontSize: 12, color: _muted),
-                          ),
-                          const Spacer(),
-                          IconButton(
-                            tooltip: '이전 달',
-                            onPressed: () => _changeMonth(-1),
-                            icon: const Icon(Icons.chevron_left, size: 21),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                          IconButton(
-                            tooltip: '다음 달',
-                            onPressed: () => _changeMonth(1),
-                            icon: const Icon(Icons.chevron_right, size: 21),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              child: GestureDetector(
-                                onHorizontalDragEnd: (details) {
-                                  final speed = details.primaryVelocity ?? 0;
-                                  if (speed.abs() > 150) {
-                                    _changeMonth(speed < 0 ? 1 : -1);
-                                  }
-                                },
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        for (final weekday
-                                            in _mondayFirst
-                                                ? [
-                                                    '월',
-                                                    '화',
-                                                    '수',
-                                                    '목',
-                                                    '금',
-                                                    '토',
-                                                    '일',
-                                                  ]
-                                                : [
-                                                    '일',
-                                                    '월',
-                                                    '화',
-                                                    '수',
-                                                    '목',
-                                                    '금',
-                                                    '토',
-                                                  ])
-                                          Expanded(
-                                            child: Center(
-                                              child: Padding(
-                                                padding: const EdgeInsets.only(
-                                                  bottom: 10,
-                                                  top: 4,
-                                                ),
-                                                child: Text(
-                                                  weekday,
-                                                  style: const TextStyle(
-                                                    color: _muted,
-                                                    fontSize: 12,
+  Widget build(BuildContext context) => Theme(
+    data: profileTheme(context),
+    child: Scaffold(
+      backgroundColor: const Color(0xFFF0F5F9),
+      body: SafeArea(
+        child: Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 440),
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            decoration: BoxDecoration(
+              color: profileSurface,
+              borderRadius: BorderRadius.circular(40),
+              border: Border.all(color: const Color(0xFFB9E4F8), width: 1.5),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x1629ACF0),
+                  blurRadius: 32,
+                  spreadRadius: 3,
+                ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: ListenableBuilder(
+              listenable: widget.controller,
+              builder: (context, _) => LayoutBuilder(
+                builder: (context, constraints) {
+                  final days = _days;
+                  final weeks = days.length ~/ 7;
+                  final cellHeight = (constraints.maxHeight * .48 / weeks)
+                      .clamp(56.0, 84.0);
+                  final selectedEntries = widget.controller.entriesOn(
+                    _selected,
+                  );
+                  return Column(
+                    children: [
+                      _header(),
+                      _monthNavigation(),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                padding: const EdgeInsets.fromLTRB(6, 12, 6, 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: Border.all(
+                                    color: const Color(0xFFE1EDF5),
+                                  ),
+                                ),
+                                child: GestureDetector(
+                                  onHorizontalDragEnd: (details) {
+                                    final speed = details.primaryVelocity ?? 0;
+                                    if (speed.abs() > 150) {
+                                      _changeMonth(speed < 0 ? 1 : -1);
+                                    }
+                                  },
+                                  child: Column(
+                                    children: [
+                                      Row(
+                                        children: [
+                                          for (final weekday
+                                              in _mondayFirst
+                                                  ? [
+                                                      '월',
+                                                      '화',
+                                                      '수',
+                                                      '목',
+                                                      '금',
+                                                      '토',
+                                                      '일',
+                                                    ]
+                                                  : [
+                                                      '일',
+                                                      '월',
+                                                      '화',
+                                                      '수',
+                                                      '목',
+                                                      '금',
+                                                      '토',
+                                                    ])
+                                            Expanded(
+                                              child: Center(
+                                                child: Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        bottom: 10,
+                                                        top: 4,
+                                                      ),
+                                                  child: Text(
+                                                    weekday,
+                                                    style: const TextStyle(
+                                                      color: _muted,
+                                                      fontSize: 12,
+                                                    ),
                                                   ),
                                                 ),
                                               ),
                                             ),
-                                          ),
-                                      ],
-                                    ),
-                                    for (var week = 0; week < weeks; week++)
-                                      SizedBox(
-                                        height: cellHeight,
-                                        child: Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.stretch,
-                                          children: [
-                                            for (var d = 0; d < 7; d++)
-                                              Expanded(
-                                                child: _dayCell(
-                                                  days[week * 7 + d],
-                                                  cellHeight,
-                                                ),
-                                              ),
-                                          ],
-                                        ),
+                                        ],
                                       ),
-                                  ],
+                                      for (var week = 0; week < weeks; week++)
+                                        SizedBox(
+                                          height: cellHeight,
+                                          child: Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
+                                            children: [
+                                              for (var d = 0; d < 7; d++)
+                                                Expanded(
+                                                  child: _dayCell(
+                                                    days[week * 7 + d],
+                                                    cellHeight,
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                16,
-                                24,
-                                16,
-                                12,
-                              ),
-                              child: Text(
-                                '${_selected.year}년 ${calendarDateLabel(_selected)}',
-                                key: const ValueKey('selected-date'),
-                                style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w800,
-                                  color: _ink,
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  24,
+                                  16,
+                                  12,
                                 ),
-                              ),
-                            ),
-                            if (selectedEntries.isEmpty)
-                              const Padding(
-                                padding: EdgeInsets.fromLTRB(18, 0, 18, 18),
                                 child: Text(
-                                  '등록된 일정이 없어요.',
-                                  style: TextStyle(color: _muted, fontSize: 14),
+                                  '${_selected.year}년 ${calendarDateLabel(_selected)}',
+                                  key: const ValueKey('selected-date'),
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: _ink,
+                                  ),
                                 ),
-                              )
-                            else
-                              for (final entry in selectedEntries)
-                                _agendaTile(entry),
-                            const SizedBox(height: 8),
+                              ),
+                              if (selectedEntries.isEmpty)
+                                Container(
+                                  width: double.infinity,
+                                  margin: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    12,
+                                  ),
+                                  padding: const EdgeInsets.all(20),
+                                  decoration: BoxDecoration(
+                                    color: profileWell,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Text(
+                                    '등록된 일정이 없어요.',
+                                    style: TextStyle(
+                                      color: _muted,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                )
+                              else
+                                for (final entry in selectedEntries)
+                                  _agendaTile(entry),
+                              const SizedBox(height: 8),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextButton.icon(
+                                key: const ValueKey('add-calendar-event'),
+                                onPressed: () => _edit(),
+                                style: TextButton.styleFrom(
+                                  backgroundColor: profileBlue,
+                                  foregroundColor: Colors.white,
+                                  alignment: Alignment.centerLeft,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 18,
+                                    vertical: 18,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.add, size: 24),
+                                label: const Text(
+                                  '새로운 이벤트',
+                                  style: TextStyle(fontSize: 17),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton.filledTonal(
+                              tooltip: '월간 일정 목록',
+                              onPressed: _showMonthAgenda,
+                              style: IconButton.styleFrom(
+                                backgroundColor: profileButton,
+                                foregroundColor: _ink,
+                                padding: const EdgeInsets.all(18),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              ),
+                              icon: const Icon(
+                                Icons.article_outlined,
+                                size: 23,
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextButton.icon(
-                              key: const ValueKey('add-calendar-event'),
-                              onPressed: () => _edit(),
-                              style: TextButton.styleFrom(
-                                backgroundColor: const Color(0xFFF4F4F6),
-                                foregroundColor: _ink,
-                                alignment: Alignment.centerLeft,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 18,
-                                  vertical: 18,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              icon: const Icon(Icons.add, size: 24),
-                              label: const Text(
-                                '새로운 이벤트',
-                                style: TextStyle(fontSize: 17),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton.filledTonal(
-                            tooltip: '월간 일정 목록',
-                            onPressed: _showMonthAgenda,
-                            style: IconButton.styleFrom(
-                              backgroundColor: const Color(0xFFF4F4F6),
-                              foregroundColor: _ink,
-                              padding: const EdgeInsets.all(18),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            icon: const Icon(Icons.article_outlined, size: 23),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              },
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -373,112 +401,152 @@ class _CalendarScreenState extends State<CalendarScreen> {
   );
 
   Widget _header() => Padding(
-    padding: const EdgeInsets.fromLTRB(4, 8, 8, 0),
+    padding: const EdgeInsets.fromLTRB(8, 14, 8, 6),
     child: Row(
       children: [
-        SizedBox(
-          width: 32,
-          child: IconButton(
-            tooltip: '홈으로 돌아가기',
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.chevron_left),
-            style: IconButton.styleFrom(
-              minimumSize: const Size(32, 44),
-              padding: EdgeInsets.zero,
+        IconButton(
+          tooltip: '홈으로 돌아가기',
+          onPressed: Navigator.of(context).canPop()
+              ? () => Navigator.of(context).pop()
+              : null,
+          icon: const Icon(Icons.arrow_back_ios_new, size: 19, color: _ink),
+          constraints: const BoxConstraints.tightFor(width: 36, height: 44),
+          padding: EdgeInsets.zero,
+        ),
+        const Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'plan',
+                        style: TextStyle(color: _ink),
+                      ),
+                      TextSpan(
+                        text: 'it',
+                        style: TextStyle(color: profileBlue),
+                      ),
+                    ],
+                  ),
+                  style: TextStyle(
+                    fontFamily: 'Fredoka',
+                    fontSize: 32,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -1,
+                  ),
+                ),
+                SizedBox(width: 6),
+                PlanitMascot(size: 32),
+              ],
             ),
           ),
         ),
+        IconButton(
+          tooltip: '일정 검색',
+          onPressed: _search,
+          icon: const Icon(Icons.search_rounded, color: _ink, size: 23),
+          constraints: const BoxConstraints.tightFor(width: 36, height: 44),
+          padding: EdgeInsets.zero,
+        ),
+        PopupMenuButton<String>(
+          tooltip: '달력 설정',
+          icon: const Icon(Icons.tune_rounded, color: _ink, size: 22),
+          constraints: const BoxConstraints(minWidth: 180),
+          padding: EdgeInsets.zero,
+          onSelected: (value) {
+            if (value == 'colors') {
+              showCalendarColors(context, widget.controller);
+              return;
+            }
+            setState(() {
+              if (value == 'monday') _mondayFirst = !_mondayFirst;
+              if (value == 'weekend') _colorWeekends = !_colorWeekends;
+            });
+          },
+          itemBuilder: (_) => [
+            const PopupMenuItem(value: 'colors', child: Text('분류별 색상')),
+            CheckedPopupMenuItem(
+              value: 'monday',
+              checked: _mondayFirst,
+              child: const Text('월요일부터 시작'),
+            ),
+            CheckedPopupMenuItem(
+              value: 'weekend',
+              checked: _colorWeekends,
+              child: const Text('주말 색상 표시'),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+
+  Widget _monthNavigation() => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 2, 12, 12),
+    child: Row(
+      children: [
         Expanded(
-          child: Semantics(
-            label: '${_month.month}월, 날짜 이동',
-            button: true,
-            child: InkWell(
-              onTap: _jumpToDate,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    '${_month.month}',
-                    style: const TextStyle(
-                      fontSize: 42,
-                      fontWeight: FontWeight.w500,
-                      color: _ink,
+          child: TextButton(
+            onPressed: _jumpToDate,
+            style: TextButton.styleFrom(
+              foregroundColor: _ink,
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              alignment: Alignment.centerLeft,
+            ),
+            child: Tooltip(
+              message: '날짜 이동',
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${_month.year}년 ${_month.month}월',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
+                    const Icon(Icons.expand_more_rounded, size: 18),
+                  ],
                 ),
               ),
             ),
           ),
         ),
-        SizedBox(
-          width: 76,
-          child: OutlinedButton(
-            onPressed: () => _select(_today),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: _ink,
-              minimumSize: const Size(0, 28),
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              side: const BorderSide(color: _ink),
-              shape: const StadiumBorder(),
-              tapTargetSize: MaterialTapTargetSize.padded,
+        TextButton(
+          onPressed: () => _select(_today),
+          style: TextButton.styleFrom(
+            foregroundColor: profileBlue,
+            backgroundColor: profileButton,
+            minimumSize: const Size(58, 32),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            shape: const StadiumBorder(),
+          ),
+          child: const Text(
+            'TODAY',
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
+          ),
+        ),
+        const SizedBox(width: 4),
+        for (final offset in [-1, 1])
+          IconButton(
+            tooltip: offset < 0 ? '이전 달' : '다음 달',
+            onPressed: () => _changeMonth(offset),
+            icon: Icon(
+              offset < 0
+                  ? Icons.chevron_left_rounded
+                  : Icons.chevron_right_rounded,
             ),
-            child: const FittedBox(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.undo, size: 15),
-                  SizedBox(width: 3),
-                  Text(
-                    'TODAY',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-                  ),
-                ],
-              ),
-            ),
+            color: profileBlue,
+            constraints: const BoxConstraints.tightFor(width: 32, height: 40),
+            padding: EdgeInsets.zero,
           ),
-        ),
-        SizedBox(
-          width: 40,
-          child: IconButton(
-            tooltip: '일정 검색',
-            onPressed: _search,
-            icon: const Icon(Icons.search, color: _ink),
-            visualDensity: VisualDensity.compact,
-          ),
-        ),
-        SizedBox(
-          width: 40,
-          child: IconButton(
-            tooltip: '날짜 이동',
-            onPressed: _jumpToDate,
-            icon: const Icon(Icons.calendar_month_outlined, color: _ink),
-            visualDensity: VisualDensity.compact,
-          ),
-        ),
-        SizedBox(
-          width: 40,
-          child: PopupMenuButton<String>(
-            tooltip: '달력 설정',
-            icon: const Icon(Icons.settings_outlined, color: _ink),
-            onSelected: (value) => setState(() {
-              if (value == 'monday') _mondayFirst = !_mondayFirst;
-              if (value == 'weekend') _colorWeekends = !_colorWeekends;
-            }),
-            itemBuilder: (_) => [
-              CheckedPopupMenuItem(
-                value: 'monday',
-                checked: _mondayFirst,
-                child: const Text('월요일부터 시작'),
-              ),
-              CheckedPopupMenuItem(
-                value: 'weekend',
-                checked: _colorWeekends,
-                child: const Text('주말 색상 표시'),
-              ),
-            ],
-          ),
-        ),
       ],
     ),
   );
@@ -500,9 +568,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 3),
         child: Material(
           color: selected
-              ? const Color(0xFF333334)
+              ? profileBlue
               : day == _today
-              ? const Color(0xFFEFEFF2)
+              ? profileButton
               : Colors.white,
           borderRadius: BorderRadius.circular(10),
           clipBehavior: Clip.antiAlias,
@@ -525,7 +593,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       color: selected
                           ? Colors.white
                           : !currentMonth
-                          ? const Color(0xFFBBBBBE)
+                          ? const Color(0xFFAFC2CF)
                           : _colorWeekends && day.weekday >= 6
                           ? weekend
                           : _ink,
@@ -539,11 +607,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     padding: const EdgeInsets.only(left: 2),
                     decoration: BoxDecoration(
                       color: Color(
-                        entries[i].event.category.colorValue,
+                        widget.controller.colorFor(entries[i].event.category),
                       ).withValues(alpha: selected ? .3 : .13),
                       border: Border(
                         left: BorderSide(
-                          color: Color(entries[i].event.category.colorValue),
+                          color: Color(
+                            widget.controller.colorFor(
+                              entries[i].event.category,
+                            ),
+                          ),
                           width: 2,
                         ),
                       ),
@@ -577,12 +649,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Widget _agendaTile(CalendarEntry entry) {
     final event = entry.event;
-    final color = Color(event.category.colorValue);
+    final color = Color(widget.controller.colorFor(event.category));
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Material(
-        color: color.withValues(alpha: .08),
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: Color(0xFFE1EDF5)),
+        ),
         child: ListTile(
           key: ValueKey('agenda-${event.id}-${entry.start.toIso8601String()}'),
           onTap: () => _edit(event),
@@ -618,6 +693,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
   String _entryTimeLabel(CalendarEntry entry) {
     if (entry.event.allDay) return '하루종일';
     if (entry.event.roomId != null) return calendarTimeLabel(entry.start);
+    if (entry.end.hour == 0 &&
+        entry.end.minute == 0 &&
+        calendarDay(entry.end) ==
+            DateTime(
+              entry.start.year,
+              entry.start.month,
+              entry.start.day + 1,
+            )) {
+      return '${calendarTimeLabel(entry.start)} – 24:00';
+    }
     if (calendarDay(entry.start) == calendarDay(entry.end)) {
       return '${calendarTimeLabel(entry.start)} – ${calendarTimeLabel(entry.end)}';
     }
@@ -629,6 +714,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
 class _EventSearch extends SearchDelegate<CalendarEvent?> {
   _EventSearch(this.controller) : super(searchFieldLabel: '일정 검색');
   final CalendarController controller;
+
+  @override
+  ThemeData appBarTheme(BuildContext context) => profileTheme(context);
 
   @override
   List<Widget> buildActions(BuildContext context) => [
@@ -674,7 +762,7 @@ class _EventSearch extends SearchDelegate<CalendarEvent?> {
             leading: Icon(
               Icons.circle,
               size: 10,
-              color: Color(event.category.colorValue),
+              color: Color(controller.colorFor(event.category)),
             ),
             title: Text(event.title),
             subtitle: Text(

@@ -114,6 +114,35 @@ class RoomsController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void saveMyPreference(String id, String text) {
+    final summary = text.trim();
+    if (summary.isEmpty) throw ArgumentError('A preference is required.');
+    final index = _rooms.indexWhere((room) => room.id == id);
+    if (index < 0) throw ArgumentError('Unknown room.');
+    final current = _rooms[index];
+    if (current.status == RoomStatus.confirmed) {
+      throw StateError('Preferences are read-only after confirmation.');
+    }
+    // The local login session currently identifies its own member as "나".
+    final memberIndex = current.members.indexWhere(
+      (member) => member.name == '나',
+    );
+    if (memberIndex < 0) {
+      throw StateError('The current member is not in this room.');
+    }
+    final member = current.members[memberIndex];
+    if (member.submitted && member.summary == summary) return;
+    final members = List<RoomMember>.of(current.members);
+    members[memberIndex] = member.copyWith(submitted: true, summary: summary);
+    _rooms[index] = current.copyWith(
+      members: members,
+      status: RoomStatus.collecting,
+      // Any previous course was based on the old preferences.
+      course: const [],
+    );
+    notifyListeners();
+  }
+
   /// Returns true only on the first transition, preventing duplicate callbacks.
   bool confirm(String id) {
     final index = _rooms.indexWhere((room) => room.id == id);

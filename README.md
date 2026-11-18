@@ -77,5 +77,6 @@ flutter run -d chrome --web-port=5173 --dart-define=SUPPORT_EMAIL=support@exampl
 - `lib/models/`, `lib/services/`: 공통 데이터와 세션 상태 관리
 - `test/`: 모델 및 화면 테스트
 - [프로필 연동 안내](docs/profile_integration.md)
+- [홈 일정·D-day 연동 안내](docs/home_integration.md)
 - [약속방 연동 안내](docs/rooms_integration.md)
 - [캘린더 연동 안내](docs/calendar_integration.md)

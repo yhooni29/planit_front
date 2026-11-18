@@ -103,7 +103,7 @@ void main() {
       );
       expect(
         calendar.entriesOn(later).single.event.category,
-        EventCategory.appointment,
+        rooms.room('after-work').category,
       );
       rooms.setDate('after-work', null);
       expect(

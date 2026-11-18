@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../models/plan_room.dart';
+import '../profile/profile_widgets.dart';
 
-const roomOrange = Color(0xFFEA602E);
-const roomInk = Color(0xFF25282C);
-const roomMuted = Color(0xFF73777D);
-const roomBackground = Color(0xFFFAF9F6);
+const roomBlue = profileBlue;
+const roomTint = profileButton;
+const roomInk = profileInk;
+const roomMuted = Color(0xFF6C879A);
+const roomBackground = profileSurface;
 
 String roomDate(DateTime? date) {
   if (date == null) return '날짜 미정';
@@ -13,30 +15,44 @@ String roomDate(DateTime? date) {
 }
 
 class RoomPanel extends StatelessWidget {
-  const RoomPanel({super.key, required this.child});
+  const RoomPanel({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(18),
+  });
   final Widget child;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
-    padding: const EdgeInsets.all(22),
+    padding: padding,
     decoration: BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(24),
-      border: Border.all(color: const Color(0xFFECEBE8)),
+      border: Border.all(color: const Color(0xFFDDEAF2)),
     ),
     child: child,
   );
 }
 
 class RoomStatusBadge extends StatelessWidget {
-  const RoomStatusBadge({super.key, required this.status});
+  const RoomStatusBadge({
+    super.key,
+    required this.status,
+    this.allSubmitted = false,
+  });
   final RoomStatus status;
+  final bool allSubmitted;
 
   @override
   Widget build(BuildContext context) {
-    final confirmed = status == RoomStatus.confirmed;
-    final color = confirmed ? const Color(0xFF3A8065) : roomOrange;
+    const color = roomBlue;
+    final label = switch (status) {
+      RoomStatus.confirmed => '약속 확정',
+      RoomStatus.recommended => '취합 완료',
+      RoomStatus.collecting => allSubmitted ? '취합 완료' : '취향 모으는 중',
+    };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -44,7 +60,7 @@ class RoomStatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        status.label,
+        label,
         style: TextStyle(
           color: color,
           fontSize: 12,
@@ -82,13 +98,74 @@ class RoomAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) => FilledButton.icon(
     style: FilledButton.styleFrom(
-      backgroundColor: roomOrange,
-      foregroundColor: Colors.white,
+      backgroundColor: roomTint,
+      foregroundColor: roomBlue,
       minimumSize: const Size.fromHeight(52),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     ),
     onPressed: onPressed,
     icon: Icon(icon, size: 18),
     label: Text(label),
+  );
+}
+
+class RoomPageScaffold extends StatelessWidget {
+  const RoomPageScaffold({super.key, required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Theme(
+    data: profileTheme(context),
+    child: Scaffold(
+      backgroundColor: const Color(0xFFF0F5F9),
+      body: SafeArea(
+        child: Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 440),
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            decoration: BoxDecoration(
+              color: roomBackground,
+              borderRadius: BorderRadius.circular(40),
+              border: Border.all(color: const Color(0xFFB9E4F8), width: 1.5),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x1629ACF0),
+                  blurRadius: 32,
+                  spreadRadius: 3,
+                ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 14, 10, 8),
+                  child: Row(
+                    children: [
+                      const BackButton(color: roomInk),
+                      Expanded(
+                        child: Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: roomInk,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 48),
+                    ],
+                  ),
+                ),
+                Expanded(child: child),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
   );
 }
